@@ -1,5 +1,25 @@
 # pr-review-crew
 
+### Flow
+
+PR opened
+   ↓
+FastAPI receives webhook
+   ↓
+Redis
+   ↓
+Arq worker
+   ↓
+Get GitHub installation token
+   ↓
+Create "PR Review Crew" check
+   ↓
+Comment "👋 Review started"
+   ↓
+WAIT 2 SECONDS          ← fake review
+   ↓
+Mark check "success"    ← regardless of code
+
 ---
 you need to install redis on your pc
 

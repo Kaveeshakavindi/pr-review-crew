@@ -1,0 +1,6 @@
+pydantic-settings
+fastapi
+pytest
+arq
+PyJWT
+httpx

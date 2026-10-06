@@ -136,6 +136,88 @@ python -m arq app.worker.WorkerSettings
 
 ![Alt Text](assets/ss6.png)
 
+4. Test webhook payload
+
+```bash
+python - <<'PY'
+import json
+import hmac
+import hashlib
+import subprocess
+
+secret = "YOUR_WEBHOOK_SECRET"
+
+payload = {
+    "action": "opened",
+    "installation": {
+        "id": 12345678
+    },
+    "repository": {
+        "owner": {
+            "login": "test-owner"
+        },
+        "name": "test-repo"
+    },
+    "pull_request": {
+        "number": 1,
+        "head": {
+            "sha": "abc123"
+        }
+    }
+}
+
+body = json.dumps(payload).encode()
+
+signature = "sha256=" + hmac.new(
+    secret.encode(),
+    body,
+    hashlib.sha256
+).hexdigest()
+
+subprocess.run([
+    "curl",
+    "-X", "POST",
+    "http://localhost:8000/webhooks",
+    "-H", "Content-Type: application/json",
+    "-H", "X-GitHub-Event: pull_request",
+    "-H", "X-GitHub-Delivery: test-delivery-001",
+    "-H", f"X-Hub-Signature-256: {signature}",
+    "-d", body
+])
+PY
+```
+![Alt Text](assets/ss7.png)
+
+5. Run above command again to test job-ID deduplication.
+
+![Alt Text](assets/ss8.png)
+
+6. Run above command again to test delievery-ID deduplication.
+
+7. Test if Arq worker received the job and attempted in arq worker running terminal
+
+![Alt Text](assets/ss9.png)
+
+8. GitHub Test with real repository
+
+- create new branch in hit hub app installed test repo.
+- commit and push changes.
+- open a new pull request.
+- at success, it will show below message.
+
+![Alt Text](assets/ss11.png)
+
+### So the webhook successfully:
+
+1. Received the request.
+2. Verified the HMAC signature.
+3. Recognized it as a pull_request + opened event.
+4. Passed the delivery deduplication check.
+5. Extracted the PR information.
+6. Created job ID.
+7. Put the job into Redis.
+8. Returned 202 Accepted immediately.
+
 ---
 
 System Architecture

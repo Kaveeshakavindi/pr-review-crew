@@ -1,4 +1,6 @@
-**PR Review Crew** is a GitHub App that provides an asynchronous foundation for automated pull request reviews. When a pull request is opened or updated, GitHub sends a signed webhook to a FastAPI service, which verifies the request, filters relevant events, prevents duplicate processing, and queues a review job in Redis. An Arq worker then processes the job, authenticates with GitHub using an installation token, creates an in-progress check, and posts a review-started comment. The current implementation simulates the review process before completing the check successfully. The project is designed as the infrastructure for integrating a real automated code-review engine in the next stage.
+# PR Review Crew
+
+PR Review Crew is a GitHub App that provides an asynchronous foundation for automated pull request reviews. When a pull request is opened or updated, GitHub sends a signed webhook to a FastAPI service, which verifies the request, filters relevant events, prevents duplicate processing, and queues a review job in Redis. An Arq worker then processes the job, authenticates with GitHub using an installation token, creates an in-progress check, and posts a review-started comment. The current implementation simulates the review process before completing the check successfully. The project is designed as the infrastructure for integrating a real automated code-review engine in the next stage.
 
 ### Tech stack
 - Python — core programming language
@@ -14,6 +16,8 @@
 - Pytest — security/unit testing
 - ngrok — exposing the local FastAPI server to GitHub webhooks
 
+**GitHub App installed for testing at :**
+https://github.com/Kaveeshakavindi/pr-crew-playground.git
 
 ### Flow
 ```
@@ -117,7 +121,7 @@ In your GitHub App settings:
 
 ---
 
-# Security
+### Security
 
 Added security to make sure that the webhook request really came from GitHub and wasn't modified by someone else because anyone who knows the ngrok public URL could potentially send a fake request.
 
@@ -155,7 +159,7 @@ python -m arq app.worker.WorkerSettings
 ```
 ---
 
-# Test : Fast API enqueue job
+### Test : Fast API enqueue job
 
 1. Redis
 

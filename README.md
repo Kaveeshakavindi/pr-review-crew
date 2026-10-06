@@ -1,7 +1,7 @@
 # pr-review-crew
 
 ### Flow
-
+```
 PR opened
    ↓
 FastAPI receives webhook
@@ -19,7 +19,7 @@ Comment "👋 Review started"
 WAIT 2 SECONDS          ← fake review
    ↓
 Mark check "success"    ← regardless of code
-
+```
 ---
 you need to install redis on your pc
 
@@ -109,6 +109,7 @@ Added security to make sure that the webhook request really came from GitHub and
 Concept:
 When GitHub sends a webhook, it takes the exact raw request body and calculates an HMAC-SHA256 signature using that secret.
 
+```
 request
    ↓
 await request.body()
@@ -120,6 +121,7 @@ signature valid?
 json.loads()
    ↓
 process webhook
+```
 
 --- 
 

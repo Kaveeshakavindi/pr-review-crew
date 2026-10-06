@@ -1,4 +1,19 @@
-# pr-review-crew
+**PR Review Crew** is a GitHub App that provides an asynchronous foundation for automated pull request reviews. When a pull request is opened or updated, GitHub sends a signed webhook to a FastAPI service, which verifies the request, filters relevant events, prevents duplicate processing, and queues a review job in Redis. An Arq worker then processes the job, authenticates with GitHub using an installation token, creates an in-progress check, and posts a review-started comment. The current implementation simulates the review process before completing the check successfully. The project is designed as the infrastructure for integrating a real automated code-review engine in the next stage.
+
+### Tech stack
+- Python — core programming language
+- FastAPI — webhook API server
+- Redis — job queue and delivery deduplication
+- Arq — asynchronous background job worker
+- httpx — asynchronous HTTP client for GitHub API
+- GitHub Apps & GitHub REST API — webhook integration, authentication, checks, and PR comments
+- HMAC-SHA256 — webhook signature verification
+- PyJWT — GitHub App JWT authentication
+- Docker / Docker Compose — Redis containerisation
+- Uvicorn — FastAPI ASGI server
+- Pytest — security/unit testing
+- ngrok — exposing the local FastAPI server to GitHub webhooks
+
 
 ### Flow
 ```

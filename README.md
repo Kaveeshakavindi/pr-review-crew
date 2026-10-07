@@ -275,52 +275,29 @@ PY
 7. Complete GitHub Check
 ```
 
+![Alt Text](assets/ss12.png)
+
 ---
 
 System Architecture
 
 ```
-                         GitHub
-                           │
-                           │ webhook
-                           ▼
-                    ┌──────────────┐
-                    │   FastAPI    │
-                    │ /webhooks    │
-                    └──────┬───────┘
-                           │
-                     verify signature
-                           │
-                     check event/action
-                           │
-                        deduplicate
-                           │
-                           ▼
-                    ┌──────────────┐
-                    │    Redis     │
-                    │  arq queue   │
-                    └──────┬───────┘
-                           │
-                           │ job
-                           ▼
-                    ┌──────────────┐
-                    │ arq Worker   │
-                    │              │
-                    │ start_review │
-                    └──────┬───────┘
-                           │
-                  get installation token
-                           │
-                           ▼
-                    ┌──────────────┐
-                    │ GitHub API   │
-                    └──────┬───────┘
-                           │
-              ┌────────────┼────────────┐
-              ▼            ▼            ▼
-          Check run     Comment      Complete
-          in progress  "👋 Review    green check
-                        started"
-
+                         GitHub PR
+                           ↓
+                        Webhook
+                           ↓
+                        FastAPI
+                           ↓
+                        Redis / Arq
+                           ↓
+                        Worker
+                           ↓
+                        GitHub Diff
+                           ↓
+                        LLM Reviewer
+                           ↓
+                        Structured Pydantic Output
+                           ↓
+                        GitHub Check
 ```
 

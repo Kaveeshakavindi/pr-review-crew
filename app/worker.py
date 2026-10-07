@@ -29,6 +29,12 @@ async def start_review(
     head_sha: str,
     installation_id: int,
 ):
+    print(
+        f"WORKER RECEIVED JOB: "
+        f"{owner}/{repo}#{pr_number} sha={head_sha}",
+        flush=True,
+    )
+
     client: httpx.AsyncClient = ctx["http"]
 
     token = await get_installation_token(

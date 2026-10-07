@@ -138,6 +138,8 @@ async def webhook(request: Request):
     job_id = f"review:{owner}/{repo}#{pr}:{head_sha}" #create unique job ID
 
     # 10. Add job to the queue
+    print(f"QUEUEING JOB: {job_id}", flush=True)
+
     await request.app.state.redis.enqueue_job(
         "start_review",
         owner,
@@ -147,6 +149,8 @@ async def webhook(request: Request):
         installation_id,
         _job_id=job_id,
     )
+
+    print(f"JOB QUEUED: {job_id}", flush=True)
 
     # 11. Return immediately
     return {

@@ -104,7 +104,6 @@ async def start_review(
         print("Sending diff to Gemini...")
         # 4. Run AI review
         review = await review_pull_request(
-            client,
             diff,
         )
 

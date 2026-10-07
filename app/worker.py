@@ -35,6 +35,7 @@ async def start_review(
         client,
         installation_id,
     )
+    print("Creating GitHub check run...")
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -65,6 +66,7 @@ async def start_review(
             f"{owner}/{repo}#{pr_number} "
             f"sha={head_sha}"
         )
+        print("Check run created.")
 
         # 2. Post PR comment
         response = await client.post(
@@ -92,7 +94,8 @@ async def start_review(
             pr_number,
             token,
         )
-
+        print("Getting PR diff...")
+        print("Sending diff to Gemini...")
         # 4. Run AI review
         review = await review_pull_request(
             client,
@@ -121,6 +124,7 @@ async def start_review(
             if review.findings
             else f"{review.summary}\n\nNo significant issues found."
         )
+        print("Gemini review completed.")
         # --------------------------------------
 
         # 5. Complete check run

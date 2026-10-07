@@ -1,11 +1,9 @@
 import asyncio
-import httpx
 
 from app.review.reviewer import review_pull_request
 
 
 async def main():
-
     diff = """
 diff --git a/test.py b/test.py
 new file mode 100644
@@ -17,11 +15,7 @@ new file mode 100644
 +print("hello")
 """
 
-    async with httpx.AsyncClient() as client:
-        result = await review_pull_request(
-            client,
-            diff,
-        )
+    result = await review_pull_request(diff)
 
     print(result.model_dump_json(indent=2))
 

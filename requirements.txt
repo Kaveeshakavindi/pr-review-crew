@@ -4,3 +4,7 @@ pytest
 arq
 PyJWT
 httpx
+uvicorn[standard]
+redis
+pydantic
+google-genai

@@ -1,6 +1,5 @@
-# Phase 01 : 5 Oct 2027
-
-## PR Review Crew
+# Phase 01 : PR Review Crew simulated review process
+### 2026-10-05
 
 PR Review Crew is a GitHub App that provides an asynchronous foundation for automated pull request reviews. When a pull request is opened or updated, GitHub sends a signed webhook to a FastAPI service, which verifies the request, filters relevant events, prevents duplicate processing, and queues a review job in Redis. An Arq worker then processes the job, authenticates with GitHub using an installation token, creates an in-progress check, and posts a review-started comment. The current implementation simulates the review process before completing the check successfully. The project is designed as the infrastructure for integrating a real automated code-review engine in the next stage.
 
@@ -255,9 +254,8 @@ PY
 
 ---
 
-# Phase 02 : 8 Oct 2027
-
-## AI Reviewer Flow
+# Phase 02 : AI Reviewer Flow
+### 2026-10-08 
 
 ```
 1. Fetch PR diff
@@ -301,3 +299,20 @@ System Architecture
                         GitHub Check
 ```
 
+---
+# Phase 03 : Production deployment
+### 2026-10-08
+```
+Render
+├── Docker container → FastAPI
+└── Docker container → Arq Worker
+
+Upstash
+└── Redis
+
+LLM Provider
+└── LLM API
+
+GitHub
+└── Actions
+```

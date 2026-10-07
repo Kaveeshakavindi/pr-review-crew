@@ -15,7 +15,6 @@
 # cache for ~55 minutes
 
 import time
-from pathlib import Path
 
 import jwt
 
@@ -24,7 +23,7 @@ import httpx
 
 
 def load_private_key() -> str:
-    return Path(settings.GITHUB_PRIVATE_KEY_PATH).read_text()
+    return settings.GITHUB_PRIVATE_KEY
 
 
 def make_app_jwt() -> str:

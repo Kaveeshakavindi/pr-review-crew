@@ -6,11 +6,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     GITHUB_APP_ID: int
-    GITHUB_PRIVATE_KEY_PATH: str
+    GITHUB_PRIVATE_KEY: str
     GITHUB_WEBHOOK_SECRET: str
     REDIS_URL: str
     WEBHOOK_URL: str
     WEBHOOK_SECRET: str
+    GEMINI_API_KEY: str
 
     model_config = SettingsConfigDict(
         env_file=".env",

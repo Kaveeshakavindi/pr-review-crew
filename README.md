@@ -1,318 +1,470 @@
-# Phase 01 : PR Review Crew simulated review process
-### 2026-10-05
+# PR Review Crew
 
-PR Review Crew is a GitHub App that provides an asynchronous foundation for automated pull request reviews. When a pull request is opened or updated, GitHub sends a signed webhook to a FastAPI service, which verifies the request, filters relevant events, prevents duplicate processing, and queues a review job in Redis. An Arq worker then processes the job, authenticates with GitHub using an installation token, creates an in-progress check, and posts a review-started comment. The current implementation simulates the review process before completing the check successfully. The project is designed as the infrastructure for integrating a real automated code-review engine in the next stage.
+PR Review Crew is a GitHub App that automatically reviews pull requests using an asynchronous processing pipeline and an AI code reviewer.
 
-### Tech stack
-- Python — core programming language
-- FastAPI — webhook API server
-- Redis — job queue and delivery deduplication
-- Arq — asynchronous background job worker
-- httpx — asynchronous HTTP client for GitHub API
-- GitHub Apps & GitHub REST API — webhook integration, authentication, checks, and PR comments
-- HMAC-SHA256 — webhook signature verification
-- PyJWT — GitHub App JWT authentication
-- Docker / Docker Compose — Redis containerisation
-- Uvicorn — FastAPI ASGI server
-- Pytest — security/unit testing
-- ngrok — exposing the local FastAPI server to GitHub webhooks
+When a pull request is opened or updated, GitHub sends a signed webhook to the application. The FastAPI service verifies the request, filters relevant events, prevents duplicate processing, and queues a review job in Redis. An Arq worker then retrieves the pull request diff, authenticates with GitHub, sends the changed code to an LLM, validates the response against a structured Pydantic schema, and publishes the review through a GitHub Check.
 
-**GitHub App installed for testing at :**
-https://github.com/Kaveeshakavindi/pr-crew-playground.git
+## Demo
 
-### Flow
-```
-PR opened
-   ↓
-FastAPI receives webhook
-   ↓
+A pull request containing intentionally vulnerable code was reviewed automatically.
+
+The reviewer identified:
+
+- Hardcoded password
+- Exposure of credentials through a `print` statement
+
+The findings included severity, description, affected file/line, and remediation suggestions.
+
+![AI Review Result](assets/ss12.png)
+
+## What it does
+
+```text
+GitHub Pull Request
+        ↓
+Signed Webhook
+        ↓
+FastAPI
+        ↓
+Signature Verification
+        ↓
+Event Filtering
+        ↓
+Delivery / Job Deduplication
+        ↓
 Redis
-   ↓
-Arq worker
-   ↓
-Get GitHub installation token
-   ↓
-Create "PR Review Crew" check
-   ↓
-Comment "👋 Review started"
-   ↓
-WAIT 2 SECONDS          ← fake review
-   ↓
-Mark check "success"    ← regardless of code
+        ↓
+Arq Worker
+        ↓
+GitHub Installation Token
+        ↓
+Fetch Pull Request Diff
+        ↓
+LLM Code Review
+        ↓
+Structured Pydantic Output
+        ↓
+GitHub Check
 ```
----
-you need to install redis on your pc
+
+The application processes reviews asynchronously so the GitHub webhook can return immediately rather than waiting for the AI review to finish.
+
+## System Architecture
+
+```text
+                         GitHub
+                           │
+                           ▼
+                    Pull Request
+                           │
+                           ▼
+                     Webhook Event
+                           │
+                           ▼
+                      FastAPI API
+                           │
+              ┌────────────┴────────────┐
+              │                         │
+      HMAC Verification          Event Filtering
+              │                         │
+              └────────────┬────────────┘
+                           │
+                           ▼
+                    Redis / Arq Queue
+                           │
+                           ▼
+                       Arq Worker
+                           │
+              ┌────────────┴────────────┐
+              │                         │
+       GitHub Authentication       PR Diff
+              │                         │
+              └────────────┬────────────┘
+                           │
+                           ▼
+                      AI Reviewer
+                           │
+                           ▼
+                  Structured JSON
+                           │
+                           ▼
+                  Pydantic Validation
+                           │
+                           ▼
+                    GitHub Check
+```
+
+## AI Review
+
+The AI reviewer receives the pull request diff and is instructed to focus on issues that can meaningfully affect:
+
+- correctness
+- security
+- reliability
+- performance
+- maintainability
+
+The reviewer is deliberately conservative. It is instructed not to report stylistic preferences, formatting issues, speculative problems, or issues outside the changed code.
+
+The expected output is:
+
+```json
+{
+  "summary": "Short summary of the review",
+  "findings": [
+    {
+      "file": "test.py",
+      "line": 10,
+      "severity": "critical",
+      "title": "Hardcoded sensitive information",
+      "description": "Explain the issue.",
+      "suggestion": "Explain how it could be fixed."
+    }
+  ]
+}
+```
+
+The response is validated using Pydantic before it is used by the application.
+
+### Review Model
+
+```text
+ReviewResult
+├── summary
+└── findings[]
+    ├── file
+    ├── line
+    ├── severity
+    ├── title
+    ├── description
+    └── suggestion
+```
+
+## Security
+
+### Webhook Verification
+
+Webhook requests are verified using HMAC-SHA256 before the JSON payload is processed.
+
+```text
+GitHub Request
+      ↓
+Raw Request Body
+      ↓
+HMAC-SHA256
+      ↓
+Compare with GitHub Signature
+      ↓
+Valid?
+   ┌──┴──┐
+  YES    NO
+   ↓      ↓
+Process  401
+```
+
+This prevents arbitrary requests from being accepted by the webhook endpoint.
+
+### GitHub Authentication
+
+The application uses GitHub App authentication:
+
+```text
+GitHub App Private Key
+        ↓
+App JWT
+        ↓
+Installation ID
+        ↓
+Installation Access Token
+        ↓
+GitHub REST API
+```
+
+The installation token is then used to access the repository and create GitHub Checks and comments.
+
+### Deduplication
+
+Two identifiers are used to prevent unnecessary duplicate processing:
+
+- GitHub delivery ID — stored in Redis with a 24-hour TTL
+- Review job ID — generated from repository, pull request number, and head commit SHA
+
+Example:
+
+```text
+review:owner/repository#1:<commit-sha>
+```
+
+## Tech Stack
+
+| Technology | Purpose |
+|---|---|
+| Python | Application and worker |
+| FastAPI | Webhook API |
+| Redis | Queue and deduplication |
+| Arq | Asynchronous job processing |
+| httpx | GitHub API client |
+| GitHub Apps | Webhook and authentication |
+| GitHub REST API | PRs, diffs, comments and checks |
+| HMAC-SHA256 | Webhook verification |
+| PyJWT | GitHub App JWT |
+| Gemini API | AI code review |
+| Pydantic | Structured output validation |
+| Docker | Containerisation |
+| Uvicorn | ASGI server |
+| Pytest | Testing |
+| ngrok | Local webhook development |
+| Render | Deployment |
+| Upstash Redis | Hosted Redis |
+
+## Testing
+
+The project includes tests for webhook security and the asynchronous processing flow.
+
+Run:
+
+```bash
+python -m pytest
+```
+
+### Webhook Flow Test
+
+The local webhook can be tested by generating a signed request:
+
+```text
+Test Payload
+     ↓
+HMAC-SHA256 Signature
+     ↓
+POST /webhooks
+     ↓
+FastAPI
+     ↓
+Redis
+     ↓
+Arq Worker
+```
+
+The test verifies that the application:
+
+1. receives the webhook
+2. validates the HMAC signature
+3. identifies the pull request event
+4. performs delivery deduplication
+5. extracts repository and PR information
+6. creates a deterministic review job ID
+7. queues the job in Redis
+8. returns `202 Accepted`
+
+The same delivery can then be submitted again to verify deduplication.
+
+## Local Setup
+
+### 1. Install dependencies
+
+Create and activate a Python environment, then install:
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Start Redis
+
+Redis can be run locally with Homebrew:
 
 ```bash
 brew install redis
-```
-
-then run it
-
-```bash
 brew services start redis
-```
-
-check if it is running
-
-```bash
 redis-cli ping
 ```
 
-OR
+Expected:
 
-Start redis via docker compose
-- include redis config in docker-compose.yml
-- go to project directory
-- and run;
+```text
+PONG
+```
+
+Or use Docker Compose:
 
 ```bash
 docker compose up -d
-```
-
-check if redis is running
-
-```bash
 docker compose ps
 ```
 
-stop redis when finished
+Stop it with:
 
 ```bash
 docker compose down
 ```
 
----
+### 3. Configure environment variables
 
-start python web application (fast api)
+Create a `.env` file containing:
+
+```text
+GITHUB_APP_ID=
+GITHUB_PRIVATE_KEY=
+GITHUB_WEBHOOK_SECRET=
+REDIS_URL=
+GEMINI_API_KEY=
+```
+
+Do not commit `.env` or GitHub private keys to the repository.
+
+### 4. Start FastAPI
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
----
+Health check:
 
-Run ngrok agent endpoint from command line
-```bash
-ngrok http 8000 --url https://<abc123>.ngrok-free.dev
+```text
+http://localhost:8000/health
 ```
 
-![Alt Text](assets/ss1.png)
+### 5. Start the Arq worker
 
----
-
----
-
-Start the worker
 ```bash
 python -m arq app.worker.WorkerSettings
 ```
----
 
-### GitHub App settings
+### 6. Expose the webhook
 
-In your GitHub App settings:
-
-- Webhook URL: https://<your-ngrok-domain>/webhooks
-- Webhook secret: a long random string, which also goes in .env
-- Permissions: Checks (read and write), Pull requests (read and write), Contents (read), Metadata (read)
-- Events: Pull request
-- Install the app on your test repo.
-
----
-
-### Security
-
-Added security to make sure that the webhook request really came from GitHub and wasn't modified by someone else because anyone who knows the ngrok public URL could potentially send a fake request.
-
-Concept:
-When GitHub sends a webhook, it takes the exact raw request body and calculates an HMAC-SHA256 signature using that secret.
-
-```
-request
-   ↓
-await request.body()
-   ↓
-verify signature
-   ↓
-signature valid?
-   ↓ YES
-json.loads()
-   ↓
-process webhook
-```
-
---- 
-
-Run tests
+For local GitHub webhook testing:
 
 ```bash
-python -m pytest
-```
-![Alt Text](assets/ss2.png)
-
-
-### Test : Fast API enqueue job
-
-1. Redis
-
-![Alt Text](assets/ss3.png)
-
-2. Fast API
-
-![Alt Text](assets/ss4.png)
-
-3. Arq Worker
-
-![Alt Text](assets/ss5.png)
-
-3. Health Check
-
-![Alt Text](assets/ss6.png)
-
-4. Test webhook payload
-
-```bash
-python - <<'PY'
-import json
-import hmac
-import hashlib
-import subprocess
-
-secret = "YOUR_WEBHOOK_SECRET"
-
-payload = {
-    "action": "opened",
-    "installation": {
-        "id": 12345678
-    },
-    "repository": {
-        "owner": {
-            "login": "test-owner"
-        },
-        "name": "test-repo"
-    },
-    "pull_request": {
-        "number": 1,
-        "head": {
-            "sha": "abc123"
-        }
-    }
-}
-
-body = json.dumps(payload).encode()
-
-signature = "sha256=" + hmac.new(
-    secret.encode(),
-    body,
-    hashlib.sha256
-).hexdigest()
-
-subprocess.run([
-    "curl",
-    "-X", "POST",
-    "http://localhost:8000/webhooks",
-    "-H", "Content-Type: application/json",
-    "-H", "X-GitHub-Event: pull_request",
-    "-H", "X-GitHub-Delivery: test-delivery-001",
-    "-H", f"X-Hub-Signature-256: {signature}",
-    "-d", body
-])
-PY
-```
-![Alt Text](assets/ss7.png)
-
-5. Run above command again to test job-ID deduplication.
-
-![Alt Text](assets/ss8.png)
-
-6. Run above command again to test delievery-ID deduplication.
-
-7. Test if Arq worker received the job and attempted in arq worker running terminal
-
-![Alt Text](assets/ss9.png)
-
-8. GitHub Test with real repository
-
-- create new branch in hit hub app installed test repo.
-- commit and push changes.
-- open a new pull request.
-- at success, it will show below message.
-
-![Alt Text](assets/ss11.png)
-
-### So the webhook successfully:
-
-1. Received the request.
-2. Verified the HMAC signature.
-3. Recognized it as a pull_request + opened event.
-4. Passed the delivery deduplication check.
-5. Extracted the PR information.
-6. Created job ID.
-7. Put the job into Redis.
-8. Returned 202 Accepted immediately.
-
----
-
-# Phase 02 : AI Reviewer Flow
-### 2026-10-08 
-
-```
-1. Fetch PR diff
-        ↓
-2. Extract changed files / hunks
-        ↓
-3. Send diff to LLM
-        ↓
-4. Receive structured JSON
-        ↓
-5. Decide whether findings exist
-        ↓
-6. Post findings as GitHub comments
-        ↓
-7. Complete GitHub Check
+ngrok http 8000
 ```
 
-![Alt Text](assets/ss12.png)
+Configure the resulting URL in the GitHub App:
 
----
-
-System Architecture
-
-```
-                         GitHub PR
-                           ↓
-                        Webhook
-                           ↓
-                        FastAPI
-                           ↓
-                        Redis / Arq
-                           ↓
-                        Worker
-                           ↓
-                        GitHub Diff
-                           ↓
-                        LLM Reviewer
-                           ↓
-                        Structured Pydantic Output
-                           ↓
-                        GitHub Check
+```text
+https://<your-ngrok-domain>/webhooks
 ```
 
----
-# Phase 03 : Production deployment
-### 2026-10-08
+## GitHub App Configuration
+
+The GitHub App requires:
+
+### Repository permissions
+
+- Checks — Read and write
+- Pull requests — Read and write
+- Contents — Read
+- Metadata — Read
+
+### Webhook events
+
+- Pull request
+
+The application currently processes:
+
+- `opened`
+- `synchronize`
+- `reopened`
+
+Other events are ignored.
+
+## Deployment
+
+The current deployment uses a lightweight architecture suitable for demonstrating the complete pipeline without requiring a separate paid worker service.
+
+```text
+                    Render
+               ┌───────────────┐
+               │ Docker Web App │
+               │               │
+GitHub ───────►│ FastAPI       │
+               │      +        │
+               │ Arq Worker    │
+               └───────┬───────┘
+                       │
+                       ▼
+                 Upstash Redis
+                       │
+                       ▼
+                  Gemini API
 ```
-Render
-├── Docker container → FastAPI
-└── Docker container → Arq Worker
 
-Upstash
-└── Redis
+The application is containerised using Docker.
 
-LLM Provider
-└── LLM API
+The same container starts both the FastAPI service and the Arq worker.
 
-GitHub
-└── Actions
+## Project Evolution
+
+### Phase 01 — Async Review Infrastructure
+**2026-10-05**
+
+The initial implementation established the asynchronous GitHub review infrastructure.
+
+Implemented:
+
+- GitHub webhook integration
+- HMAC signature verification
+- pull request event filtering
+- delivery deduplication
+- deterministic job IDs
+- Redis queue
+- Arq worker
+- GitHub App authentication
+- GitHub Check creation
+- review-started comments
+- Docker support
+- automated tests
+
+The initial worker simulated the review process.
+
+### Phase 02 — AI Reviewer
+**2026-10-08**
+
+The simulated review process was replaced with an AI-powered reviewer.
+
+Implemented:
+
+- pull request diff retrieval
+- LLM-based code review
+- structured JSON output
+- Pydantic validation
+- severity classification
+- security/correctness/reliability-focused review
+- GitHub Check output
+
+### Phase 03 — Deployment
+**2026-10-08**
+
+The complete application was deployed using:
+
+- Docker
+- Render
+- Upstash Redis
+- Gemini API
+
+The deployed application can receive GitHub webhooks and process pull requests asynchronously.
+
+## Current Limitations
+
+This project is currently an early-stage automated review system.
+
+Current limitations include:
+
+- Reviews are based on the pull request diff rather than the complete repository context.
+- Finding locations depend on the LLM's ability to identify changed lines.
+- The reviewer does not yet execute or test the submitted code.
+- There is currently no persistent review history or analytics.
+- The deployment combines the web service and worker in one container for simplicity.
+
+## Next Steps
+
+Potential improvements include:
+
+- more accurate changed-line annotations
+- GitHub inline review comments
+- repository-aware analysis
+- static analysis integration
+- automated test execution
+- review evaluation against a benchmark of vulnerable pull requests
+- persistent review history
+- improved handling of large pull requests
+- multi-agent or specialised review stages
 ```

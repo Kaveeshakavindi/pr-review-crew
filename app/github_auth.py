@@ -23,7 +23,7 @@ import httpx
 
 
 def load_private_key() -> str:
-    return settings.GITHUB_PRIVATE_KEY
+    return settings.GITHUB_PRIVATE_KEY.replace("\\n", "\n")
 
 
 def make_app_jwt() -> str:

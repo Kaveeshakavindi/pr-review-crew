@@ -4,9 +4,9 @@
 #    ↓
 # worker.py
 #    ↓
-# arq picks it up
+# arq (Asynchronous Redis Queue) picks it up
 
-import asyncio
+# arq: lightweight, high-performance job queue and Remote Procedure Call (RPC) library for Python
 
 import httpx
 
@@ -15,6 +15,8 @@ from arq.connections import RedisSettings
 from app.config import settings
 from app.github_auth import get_installation_token
 
+from app.github_client import get_pull_request_diff
+from app.review.reviewer import review_pull_request
 
 GITHUB_API = "https://api.github.com"
 
@@ -77,9 +79,51 @@ async def start_review(
         response.raise_for_status()
 
         # 3. Simulate review work
-        await asyncio.sleep(2)
+        # await asyncio.sleep(2)
 
-        # 4. Complete check run
+        # ---------------------------------------
+        # 3. integrate AI reviewer into worker
+        # added on 2026-10-08 (phase 02)
+        # 3. Get PR diff
+        diff = await get_pull_request_diff(
+            client,
+            owner,
+            repo,
+            pr_number,
+            token,
+        )
+
+        # 4. Run AI review
+        review = await review_pull_request(
+            client,
+            diff,
+        )
+
+        print(
+            f"Review result for {owner}/{repo}#{pr_number}:"
+        )
+
+        print(
+            review.model_dump_json(indent=2)
+        )
+
+        findings_text = "\n\n".join(
+            f"**{finding.severity.upper()} — {finding.title}**\n"
+            f"{finding.description}\n"
+            f"**Suggestion:** {finding.suggestion or 'No suggestion provided.'}"
+            for finding in review.findings
+        )
+
+        summary = (
+            f"{review.summary}\n\n"
+            f"Found {len(review.findings)} issue(s).\n\n"
+            f"{findings_text}"
+            if review.findings
+            else f"{review.summary}\n\nNo significant issues found."
+        )
+        # --------------------------------------
+
+        # 5. Complete check run
         response = await client.patch(
             f"{GITHUB_API}/repos/{owner}/{repo}"
             f"/check-runs/{check_run_id}",
@@ -89,7 +133,7 @@ async def start_review(
                 "conclusion": "success",
                 "output": {
                     "title": "PR Review Crew",
-                    "summary": "Automated review completed successfully.",
+                    "summary": summary,
                 },
             },
         )

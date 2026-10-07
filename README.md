@@ -1,4 +1,6 @@
-# PR Review Crew
+# Phase 01 : 5 Oct 2027
+
+## PR Review Crew
 
 PR Review Crew is a GitHub App that provides an asynchronous foundation for automated pull request reviews. When a pull request is opened or updated, GitHub sends a signed webhook to a FastAPI service, which verifies the request, filters relevant events, prevents duplicate processing, and queues a review job in Redis. An Arq worker then processes the job, authenticates with GitHub using an installation token, creates an in-progress check, and posts a review-started comment. The current implementation simulates the review process before completing the check successfully. The project is designed as the infrastructure for integrating a real automated code-review engine in the next stage.
 
@@ -61,6 +63,7 @@ redis-cli ping
 OR
 
 Start redis via docker compose
+- include redis config in docker-compose.yml
 - go to project directory
 - and run;
 
@@ -82,20 +85,10 @@ docker compose down
 
 ---
 
-start python web application
+start python web application (fast api)
 
 ```bash
 uvicorn app.main:app --reload
-```
-
----
-
-create empty __init__.py file. it asks app to treat the folder as a python package. 
-
-example:
-
-```bash
-touch app/__init__.py
 ```
 
 ---
@@ -107,6 +100,14 @@ ngrok http 8000 --url https://<abc123>.ngrok-free.dev
 
 ![Alt Text](assets/ss1.png)
 
+---
+
+---
+
+Start the worker
+```bash
+python -m arq app.worker.WorkerSettings
+```
 ---
 
 ### GitHub App settings
@@ -151,13 +152,6 @@ python -m pytest
 ```
 ![Alt Text](assets/ss2.png)
 
----
-
-Start the worker
-```bash
-python -m arq app.worker.WorkerSettings
-```
----
 
 ### Test : Fast API enqueue job
 
@@ -258,6 +252,28 @@ PY
 6. Created job ID.
 7. Put the job into Redis.
 8. Returned 202 Accepted immediately.
+
+---
+
+# Phase 02 : 8 Oct 2027
+
+## AI Reviewer Flow
+
+```
+1. Fetch PR diff
+        ↓
+2. Extract changed files / hunks
+        ↓
+3. Send diff to LLM
+        ↓
+4. Receive structured JSON
+        ↓
+5. Decide whether findings exist
+        ↓
+6. Post findings as GitHub comments
+        ↓
+7. Complete GitHub Check
+```
 
 ---
 

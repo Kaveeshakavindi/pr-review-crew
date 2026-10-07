@@ -197,3 +197,4 @@ class WorkerSettings:
     job_timeout = 300
     on_startup = startup
     on_shutdown = shutdown
+    keep_result = 3600

@@ -180,23 +180,17 @@ async def start_review(
 
 
 async def startup(ctx):
+    print("ARQ WORKER STARTUP", flush=True)
     ctx["http"] = httpx.AsyncClient()
 
 
 async def shutdown(ctx):
     await ctx["http"].aclose()
 
-
 class WorkerSettings:
     functions = [start_review]
-
-    redis_settings = RedisSettings.from_dsn(
-        settings.REDIS_URL
-    )
-
+    redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
     max_tries = 3
-
     job_timeout = 300
-
     on_startup = startup
     on_shutdown = shutdown

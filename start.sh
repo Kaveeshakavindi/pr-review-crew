@@ -1,6 +1,14 @@
 #!/bin/sh
 set -e
 
-arq app.worker.WorkerSettings &
+echo "Starting Arq worker..."
+python -m arq app.worker.WorkerSettings &
 
-exec uvicorn app.main:app --host 0.0.0.0 --port 8000
+WORKER_PID=$!
+echo "Arq worker PID: $WORKER_PID"
+
+echo "Starting FastAPI..."
+uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+UVICORN_PID=$!
+
+wait -n $WORKER_PID $UVICORN_PID

@@ -187,8 +187,11 @@ async def startup(ctx):
 async def shutdown(ctx):
     await ctx["http"].aclose()
 
+async def test_job(ctx):
+    print("TEST JOB RECEIVED", flush=True)
+
 class WorkerSettings:
-    functions = [start_review]
+    functions = [start_review, test_job]
     redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
     max_tries = 3
     job_timeout = 300

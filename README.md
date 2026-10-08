@@ -51,48 +51,7 @@ The application processes reviews asynchronously so the GitHub webhook can retur
 
 ## System Architecture
 
-```text
-                         GitHub
-                           │
-                           ▼
-                    Pull Request
-                           │
-                           ▼
-                     Webhook Event
-                           │
-                           ▼
-                      FastAPI API
-                           │
-              ┌────────────┴────────────┐
-              │                         │
-      HMAC Verification          Event Filtering
-              │                         │
-              └────────────┬────────────┘
-                           │
-                           ▼
-                    Redis / Arq Queue
-                           │
-                           ▼
-                       Arq Worker
-                           │
-              ┌────────────┴────────────┐
-              │                         │
-       GitHub Authentication       PR Diff
-              │                         │
-              └────────────┬────────────┘
-                           │
-                           ▼
-                      AI Reviewer
-                           │
-                           ▼
-                  Structured JSON
-                           │
-                           ▼
-                  Pydantic Validation
-                           │
-                           ▼
-                    GitHub Check
-```
+![System Architecture](assets/ss13.png)
 
 ## AI Review
 
